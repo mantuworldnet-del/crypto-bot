@@ -1,10 +1,32 @@
-import requests, time, html, datetime, pytz, random, json, os
+import requests, time, html, datetime, pytz, random, json, os, threading
+from flask import Flask
 
+# ========== CREDENTIALS ==========
 BOT_TOKEN = "8839565223:AAFW3u0H7GHPrzJMZAgaowPwKwOns0d2wXM"
 CHAT_ID = "7020214660"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 STATE_FILE = "state.json"
 
+# ========== KEEP ALIVE SERVER ==========
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is Running 24/7"
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+# ========== SELF PING (EVERY 4 MIN) ==========
+def self_ping():
+    while True:
+        time.sleep(240)
+        try:
+            requests.get("http://localhost:8080/", timeout=5)
+        except:
+            pass
+
+# ========== EXCHANGE CONFIGS ==========
 EXCHANGES = {
     "Binance": {"url":"https://fapi.binance.com/fapi/v1/premiumIndex","rk":"lastFundingRate","nk":"nextFundingTime","sk":"symbol"},
     "Bybit": {"url":"https://api.bybit.com/v5/market/tickers?category=linear","rk":"fundingRate","nk":"nextFundingTimestamp","sk":"symbol"},
@@ -333,8 +355,12 @@ def wr():
             state["wd"] = {"as":0,"liq":0,"fb":0,"fu":0,"lo":0,"so":0,"ic":0,"ie":0,"pa":0,"nl":0,"top":[],"peak":0}
             save_state()
 
+# ========== MAIN ==========
+threading.Thread(target=run_flask, daemon=True).start()
+threading.Thread(target=self_ping, daemon=True).start()
+
 update_prices()
-stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n✅ ALL SYSTEMS NOMINAL")
+stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n🔄 Auto-Refresh: Active\n✅ ALL SYSTEMS NOMINAL")
 
 while True:
     try:
