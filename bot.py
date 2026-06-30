@@ -22,39 +22,40 @@ def self_ping():
         except: pass
 
 # ========== EXCHANGE CONFIGS ==========
-EXCHANGES = {
-    "Binance": {
+EXCHANGES = [
+    {
+        "name": "Binance",
         "url": "https://fapi.binance.com/fapi/v1/premiumIndex",
         "rk": "lastFundingRate",
         "nk": "nextFundingTime",
-        "sk": "symbol"
+        "sk": "symbol",
+        "type": "binance"
     },
-    "Bybit": {
+    {
+        "name": "Bybit",
         "url": "https://api.bybit.com/v5/market/tickers?category=linear",
         "rk": "fundingRate",
         "nk": "nextFundingTimestamp",
-        "sk": "symbol"
+        "sk": "symbol",
+        "type": "bybit"
     },
-    "OKX": {
+    {
+        "name": "OKX",
         "url": "https://www.okx.com/api/v5/market/tickers?instType=SWAP",
         "rk": "fundingRate",
         "nk": "nextFundingTime",
-        "sk": "instId"
+        "sk": "instId",
+        "type": "okx"
     },
-    "Bitget": {
+    {
+        "name": "Bitget",
         "url": "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
         "rk": "fundingRate",
         "nk": "nextFundingTime",
-        "sk": "symbol"
+        "sk": "symbol",
+        "type": "bitget"
     },
-}
-
-TICKER_URLS = {
-    "Binance": "https://fapi.binance.com/fapi/v1/ticker/24hr",
-    "Bybit": "https://api.bybit.com/v5/market/tickers?category=linear",
-    "OKX": "https://www.okx.com/api/v5/market/tickers?instType=SWAP",
-    "Bitget": "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
-}
+]
 
 REFRESH = 300
 IST = pytz.timezone("Asia/Kolkata")
@@ -79,8 +80,8 @@ state = load_state()
 
 def cs(r, e):
     r = r.strip().upper()
-    if e == "OKX": r = r.replace("-USDT-SWAP","USDT")
-    elif e == "Bitget": r = r.replace("_UMCBL","").replace("-USDT","USDT")
+    if e == "okx": r = r.replace("-USDT-SWAP","USDT")
+    elif e == "bitget": r = r.replace("_UMCBL","").replace("-USDT","USDT")
     r = r.replace("-USDT","USDT").replace("_USDT","USDT")
     return r if r.endswith("USDT") else r + "USDT"
 
@@ -97,7 +98,13 @@ def stg(t):
                 if r.get("error_code")==429: time.sleep(10)
             except: time.sleep(2)
 
-def fd(u): return requests.get(u, headers={"User-Agent":"Mozilla/5.0"}, timeout=15).json()
+def fd(u):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+    return requests.get(u, headers=headers, timeout=15).json()
 
 def ih(s):
     if s <= 0: return 0
@@ -148,91 +155,43 @@ def calc_sl_tp(price, at, an):
     rr = round(abs(tp-price)/abs(sl-price), 1) if abs(sl-price) > 0 else 2.0
     return round(sl,4), round(tp,4), rr
 
-def update_prices():
-    prices, volumes, changes = {}, {}, {}
-    for ex, url in TICKER_URLS.items():
-        try:
-            data = fd(url)
-            if ex == "Binance":
-                for i in data:
-                    s = cs(i["symbol"], ex)
-                    if s.endswith("USDT"):
-                        prices[s] = float(i.get("lastPrice",0))
-                        volumes[s] = float(i.get("quoteVolume",0))
-                        changes[s] = float(i.get("priceChangePercent",0))
-                print(f"✅ Binance Prices: {len(prices)} symbols")
-            elif ex == "Bybit":
-                for i in data["result"]["list"]:
-                    s = cs(i["symbol"], ex)
-                    if s.endswith("USDT"):
-                        prices[s] = float(i.get("lastPrice",0))
-                        volumes[s] = float(i.get("turnover24h",0))
-                        changes[s] = float(i.get("price24hPcnt",0))*100
-                print(f"✅ Bybit Prices: {len(prices)} symbols")
-            elif ex == "OKX":
-                for i in data["data"]:
-                    if i.get("instId","").endswith("-USDT-SWAP"):
-                        s = cs(i["instId"], ex)
-                        prices[s] = float(i.get("last",0))
-                        volumes[s] = float(i.get("volCcy24h",0))
-                        changes[s] = float(i.get("change24h",0))*100 if i.get("change24h") else 0
-                print(f"✅ OKX Prices: {len(prices)} symbols")
-            elif ex == "Bitget":
-                for i in data["data"]:
-                    s = cs(i.get("symbol",""), ex)
-                    if s.endswith("USDT"):
-                        prices[s] = float(i.get("lastPr",0)) if i.get("lastPr") else 0
-                        volumes[s] = float(i.get("usdtVolume",0)) if i.get("usdtVolume") else 0
-                        changes[s] = float(i.get("change24h",0))*100 if i.get("change24h") else 0
-                print(f"✅ Bitget Prices: {len(prices)} symbols")
-        except Exception as e:
-            print(f"❌ {ex} Price Error: {e}")
-    state["prices"] = prices
-    state["volumes"] = volumes
-    state["changes"] = changes
-    print(f"📊 Total Symbols with Prices: {len(prices)}")
-
 def gd():
     ad = {}
-    for ex, c in EXCHANGES.items():
+    for ex in EXCHANGES:
         try:
-            data = fd(c["url"])
-            if ex == "OKX":
+            data = fd(ex["url"])
+            name = ex["name"]
+            if ex["type"] == "okx":
                 count = 0
                 for i in data["data"]:
                     if not i.get("instId","").endswith("-USDT-SWAP"): continue
-                    s = cs(i["instId"],ex)
-                    ad.setdefault(s,{})[ex] = {"r":float(i.get(c["rk"],0)),"n":int(i.get(c["nk"],"0"))/1000 if i.get(c["nk"]) else 0}
+                    s = cs(i["instId"], ex["type"])
+                    ad.setdefault(s,{})[name] = {"r":float(i.get(ex["rk"],0)),"n":int(i.get(ex["nk"],"0"))/1000 if i.get(ex["nk"]) else 0}
                     count += 1
-                print(f"✅ {ex}: {count} symbols")
-            elif ex == "Bitget":
+            elif ex["type"] == "bitget":
                 count = 0
                 for i in data.get("data",[]):
-                    s = cs(i.get(c["sk"],""),ex)
+                    s = cs(i.get(ex["sk"],""), ex["type"])
                     if not s.endswith("USDT"): continue
-                    r = float(i.get(c["rk"],0)) if i.get(c["rk"]) else 0
-                    n = int(i.get(c["nk"],"0"))/1000 if i.get(c["nk"]) else 0
-                    ad.setdefault(s,{})[ex] = {"r":r,"n":n}
+                    r = float(i.get(ex["rk"],0)) if i.get(ex["rk"]) else 0
+                    n = int(i.get(ex["nk"],"0"))/1000 if i.get(ex["nk"]) else 0
+                    ad.setdefault(s,{})[name] = {"r":r,"n":n}
                     count += 1
-                print(f"✅ {ex}: {count} symbols")
-            elif ex == "Binance":
+            elif ex["type"] == "binance":
                 count = 0
                 for i in data:
-                    s = cs(i[c["sk"]],ex)
+                    s = cs(i[ex["sk"]], ex["type"])
                     if not s.endswith("USDT"): continue
-                    ad.setdefault(s,{})[ex] = {"r":float(i[c["rk"]]),"n":int(i[c["nk"]])/1000}
+                    ad.setdefault(s,{})[name] = {"r":float(i[ex["rk"]]),"n":int(i[ex["nk"]])/1000}
                     count += 1
-                print(f"✅ {ex}: {count} symbols")
-            elif ex == "Bybit":
+            elif ex["type"] == "bybit":
                 count = 0
                 for i in data["result"]["list"]:
-                    s = cs(i[c["sk"]],ex)
-                    ad.setdefault(s,{})[ex] = {"r":float(i[c["rk"]]),"n":int(i.get(c["nk"],0))/1000 if i.get(c["nk"]) else 0}
+                    s = cs(i[ex["sk"]], ex["type"])
+                    ad.setdefault(s,{})[name] = {"r":float(i[ex["rk"]]),"n":int(i.get(ex["nk"],0))/1000 if i.get(ex["nk"]) else 0}
                     count += 1
-                print(f"✅ {ex}: {count} symbols")
         except Exception as e:
-            print(f"❌ {ex} Funding Error: {e}")
-    print(f"📊 Total Symbols with Funding: {len(ad)}")
+            pass
     return ad
 
 def da(cur):
@@ -385,13 +344,13 @@ def wr():
 threading.Thread(target=run_flask, daemon=True).start()
 threading.Thread(target=self_ping, daemon=True).start()
 
-update_prices()
-stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: King Samrat Mantu Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n✅ ALL SYSTEMS NOMINAL")
+stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: King Samrat Mantu Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n✅ ALL SYSTEMS NOMINAL")
 
 while True:
     try:
-        update_prices()
-        for a in da(gd()): stg(a)
+        data = gd()
+        print(f"📊 Exchanges found: {list(set([k for v in data.values() for k in v.keys()]))}")
+        for a in da(data): stg(a)
         hb()
         wr()
     except Exception as e: print(f"Error: {e}")
