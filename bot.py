@@ -1,13 +1,11 @@
 import requests, time, html, datetime, pytz, random, json, os, threading
 from flask import Flask
 
-# ========== CREDENTIALS ==========
 BOT_TOKEN = "8839565223:AAFW3u0H7GHPrzJMZAgaowPwKwOns0d2wXM"
 CHAT_ID = "7020214660"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 STATE_FILE = "state.json"
 
-# ========== KEEP ALIVE ==========
 app = Flask(__name__)
 @app.route('/')
 def home(): return "King Samrat Mantu Singh Bot - Running 24/7"
@@ -21,32 +19,18 @@ def self_ping():
         try: requests.get("http://localhost:8080/", timeout=5)
         except: pass
 
-# ========== EXCHANGE CONFIGS (MULTI MIRROR FOR US SERVER) ==========
 EXCHANGES = {
-    "Binance": [
-        "https://fapi.binance.com/fapi/v1/premiumIndex",
-        "https://api1.binance.com/fapi/v1/premiumIndex",
-        "https://api2.binance.com/fapi/v1/premiumIndex",
-        "https://api3.binance.com/fapi/v1/premiumIndex"
-    ],
-    "Bybit": [
-        "https://api.bybit.com/v5/market/tickers?category=linear",
-        "https://api.bytick.com/v5/market/tickers?category=linear"
-    ],
-    "OKX": [
-        "https://www.okx.com/api/v5/market/tickers?instType=SWAP",
-        "https://aws.okx.com/api/v5/market/tickers?instType=SWAP"
-    ],
-    "Bitget": [
-        "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES"
-    ],
+    "Binance": {"url":"https://fapi.binance.com/fapi/v1/premiumIndex","rk":"lastFundingRate","nk":"nextFundingTime","sk":"symbol"},
+    "Bybit": {"url":"https://api.bybit.com/v5/market/tickers?category=linear","rk":"fundingRate","nk":"nextFundingTimestamp","sk":"symbol"},
+    "OKX": {"url":"https://www.okx.com/api/v5/market/tickers?instType=SWAP","rk":"fundingRate","nk":"nextFundingTime","sk":"instId"},
+    "Bitget": {"url":"https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES","rk":"fundingRate","nk":"nextFundingTime","sk":"symbol"},
 }
 
 TICKER_URLS = {
-    "Binance": ["https://fapi.binance.com/fapi/v1/ticker/24hr", "https://api1.binance.com/fapi/v1/ticker/24hr"],
-    "Bybit": ["https://api.bybit.com/v5/market/tickers?category=linear", "https://api.bytick.com/v5/market/tickers?category=linear"],
-    "OKX": ["https://www.okx.com/api/v5/market/tickers?instType=SWAP", "https://aws.okx.com/api/v5/market/tickers?instType=SWAP"],
-    "Bitget": ["https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES"],
+    "Binance": "https://fapi.binance.com/fapi/v1/ticker/24hr",
+    "Bybit": "https://api.bybit.com/v5/market/tickers?category=linear",
+    "OKX": "https://www.okx.com/api/v5/market/tickers?instType=SWAP",
+    "Bitget": "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
 }
 
 REFRESH = 300
@@ -90,18 +74,7 @@ def stg(t):
                 if r.get("error_code")==429: time.sleep(10)
             except: time.sleep(2)
 
-def fd(url):
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-    try:
-        return requests.get(url, headers=headers, timeout=15).json()
-    except:
-        return {}
-
-def try_fetch(urls):
-    for url in urls:
-        data = fd(url)
-        if data: return data
-    return {}
+def fd(u): return requests.get(u, headers={"User-Agent":"Mozilla/5.0"}, timeout=15).json()
 
 def ih(s):
     if s <= 0: return 0
@@ -154,10 +127,9 @@ def calc_sl_tp(price, at, an):
 
 def update_prices():
     prices, volumes, changes = {}, {}, {}
-    for ex, urls in TICKER_URLS.items():
-        data = try_fetch(urls)
-        if not data: continue
+    for ex, url in TICKER_URLS.items():
         try:
+            data = fd(url)
             if ex == "Binance":
                 for i in data:
                     s = cs(i["symbol"], ex)
@@ -166,21 +138,21 @@ def update_prices():
                         volumes[s] = float(i.get("quoteVolume",0))
                         changes[s] = float(i.get("priceChangePercent",0))
             elif ex == "Bybit":
-                for i in data.get("result",{}).get("list",[]):
+                for i in data["result"]["list"]:
                     s = cs(i["symbol"], ex)
                     if s.endswith("USDT"):
                         prices[s] = float(i.get("lastPrice",0))
                         volumes[s] = float(i.get("turnover24h",0))
                         changes[s] = float(i.get("price24hPcnt",0))*100
             elif ex == "OKX":
-                for i in data.get("data",[]):
+                for i in data["data"]:
                     if i.get("instId","").endswith("-USDT-SWAP"):
                         s = cs(i["instId"], ex)
                         prices[s] = float(i.get("last",0))
                         volumes[s] = float(i.get("volCcy24h",0))
                         changes[s] = float(i.get("change24h",0))*100 if i.get("change24h") else 0
             elif ex == "Bitget":
-                for i in data.get("data",[]):
+                for i in data["data"]:
                     s = cs(i.get("symbol",""), ex)
                     if s.endswith("USDT"):
                         prices[s] = float(i.get("lastPr",0)) if i.get("lastPr") else 0
@@ -196,31 +168,30 @@ def update_prices():
 
 def gd():
     ad = {}
-    for ex, urls in EXCHANGES.items():
-        data = try_fetch(urls)
-        if not data: continue
+    for ex, c in EXCHANGES.items():
         try:
+            data = fd(c["url"])
             if ex == "OKX":
-                for i in data.get("data",[]):
+                for i in data["data"]:
                     if not i.get("instId","").endswith("-USDT-SWAP"): continue
                     s = cs(i["instId"],ex)
-                    ad.setdefault(s,{})[ex] = {"r":float(i.get("fundingRate",0)),"n":int(i.get("nextFundingTime","0"))/1000 if i.get("nextFundingTime") else 0}
+                    ad.setdefault(s,{})[ex] = {"r":float(i.get(c["rk"],0)),"n":int(i.get(c["nk"],"0"))/1000 if i.get(c["nk"]) else 0}
             elif ex == "Bitget":
                 for i in data.get("data",[]):
-                    s = cs(i.get("symbol",""),ex)
+                    s = cs(i.get(c["sk"],""),ex)
                     if not s.endswith("USDT"): continue
-                    r = float(i.get("fundingRate",0)) if i.get("fundingRate") else 0
-                    n = int(i.get("nextFundingTime","0"))/1000 if i.get("nextFundingTime") else 0
+                    r = float(i.get(c["rk"],0)) if i.get(c["rk"]) else 0
+                    n = int(i.get(c["nk"],"0"))/1000 if i.get(c["nk"]) else 0
                     ad.setdefault(s,{})[ex] = {"r":r,"n":n}
             elif ex == "Binance":
                 for i in data:
-                    s = cs(i["symbol"],ex)
+                    s = cs(i[c["sk"]],ex)
                     if not s.endswith("USDT"): continue
-                    ad.setdefault(s,{})[ex] = {"r":float(i["lastFundingRate"]),"n":int(i["nextFundingTime"])/1000}
+                    ad.setdefault(s,{})[ex] = {"r":float(i[c["rk"]]),"n":int(i[c["nk"]])/1000}
             elif ex == "Bybit":
-                for i in data.get("result",{}).get("list",[]):
-                    s = cs(i["symbol"],ex)
-                    ad.setdefault(s,{})[ex] = {"r":float(i["fundingRate"]),"n":int(i.get("nextFundingTimestamp",0))/1000 if i.get("nextFundingTimestamp") else 0}
+                for i in data["result"]["list"]:
+                    s = cs(i[c["sk"]],ex)
+                    ad.setdefault(s,{})[ex] = {"r":float(i[c["rk"]]),"n":int(i.get(c["nk"],0))/1000 if i.get(c["nk"]) else 0}
         except: pass
     return ad
 
