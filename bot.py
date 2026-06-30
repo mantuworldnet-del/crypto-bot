@@ -10,7 +10,7 @@ STATE_FILE = "state.json"
 # ========== KEEP ALIVE ==========
 app = Flask(__name__)
 @app.route('/')
-def home(): return "Samrat Singh Bot - Running 24/7"
+def home(): return "King Samrat Mantu Singh Bot - Running 24/7"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
@@ -36,7 +36,7 @@ TICKER_URLS = {
     "Bitget": "https://api.bitget.com/api/v2/mix/market/tickers?productType=USDT-FUTURES",
 }
 
-REFRESH, COOLDOWN = 300, 1800
+REFRESH = 300
 IST = pytz.timezone("Asia/Kolkata")
 
 def load_state():
@@ -44,7 +44,7 @@ def load_state():
         try:
             with open(STATE_FILE) as f: return json.load(f)
         except: pass
-    return {"s":{},"hl":0,"wl":"","st":time.time(),"at":{},"seen":[],"prices":{},"volumes":{},"changes":{},"alert_times":{},"wd":{"as":0,"liq":0,"fb":0,"fu":0,"lo":0,"so":0,"ic":0,"ie":0,"pa":0,"nl":0,"top":[],"peak":0},"history":[]}
+    return {"s":{},"hl":0,"wl":"","st":time.time(),"seen":[],"prices":{},"volumes":{},"changes":{},"wd":{"as":0,"liq":0,"fb":0,"fu":0,"lo":0,"so":0,"ic":0,"ie":0,"pa":0,"nl":0,"top":[],"peak":0},"history":[]}
 
 def save_state():
     try:
@@ -98,13 +98,6 @@ def fmt_settle(ts, nw):
     diff = ts - nw
     h, m = int(diff//3600), int((diff%3600)//60)
     return f"{h}h {m}m"
-
-def can(at):
-    nw = time.time()
-    if nw - state.setdefault("at",{}).get(at,0) >= COOLDOWN:
-        state["at"][at] = nw
-        return True
-    return False
 
 def sig_stars(a, at, n):
     if at == "liq":
@@ -311,7 +304,7 @@ def da(cur):
     msgs = []
     for at, items in groups.items():
         valid = [(x[0], x[1]) for x in items if x[0]]
-        if not valid or not can(at): continue
+        if not valid: continue
         title, priority = titles[at]
         lines = [x[0] for x in valid]
         header = f"╔══════════════════════════════════╗\n║  {title}  ║\n║  🔔 PRIORITY: {priority}               ║\n╚══════════════════════════════════╝\n"
@@ -331,10 +324,9 @@ def da(cur):
 
 def hb():
     nw = time.time()
-    if nw - state.get("hl",0) > 1800:
-        state["hl"] = nw
-        stg(f"╔══════════════════════════════════╗\n║  💓 SYSTEM HEARTBEAT 💓          ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🕐 Time: {ft(nw)}\n📊 Monitoring: {len(state['s'])} Symbols\n✅ Status: ALL SYSTEMS NOMINAL\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ Refresh: 5 min\n🔄 Next: {ft(nw+300)}")
-        save_state()
+    state["hl"] = nw
+    stg(f"╔══════════════════════════════════╗\n║  💓 SYSTEM HEARTBEAT 💓          ║\n╚══════════════════════════════════╝\n\n👑 Bot: King Samrat Mantu Singh\n🕐 Time: {ft(nw)}\n📊 Monitoring: {len(state['s'])} Symbols\n✅ Status: ALL SYSTEMS NOMINAL\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ Refresh: 5 min\n🔄 Next: {ft(nw+300)}")
+    save_state()
 
 def wr():
     nw = time.time()
@@ -346,7 +338,7 @@ def wr():
             wd = state.get("wd",{})
             top = wd.get("top",[])
             top_str = "\n".join([f"{i+1}. {ge(t['sym'])} {t['sym']} - {t['count']} alerts" for i,t in enumerate(top)]) if top else "No data"
-            stg(f"╔══════════════════════════════════╗\n║  📊 WEEKLY REPORT 📊             ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n📅 {dt.strftime('%d-%b %Y')}\n⏱️ Uptime: {int((nw-state['st'])/86400)} Days\n📊 Symbols: {len(state['s'])}\n📨 Total Alerts: {wd.get('as',0)}\n\n📋 BY TYPE:\n🚨 Liquidation: {wd.get('liq',0)}\n🔴 Flip Bearish: {wd.get('fb',0)}\n🟢 Flip Bullish: {wd.get('fu',0)}\n🟢 Long Opp: {wd.get('lo',0)}\n🔴 Short Opp: {wd.get('so',0)}\n⚠️ Interval Comp: {wd.get('ic',0)}\n🔵 Interval Exp: {wd.get('ie',0)}\n💎 Premium Alpha: {wd.get('pa',0)}\n🆕 New Listing: {wd.get('nl',0)}\n\n🏆 TOP SYMBOLS:\n{top_str}\n\n📊 Peak 24h Vol: ${wd.get('peak',0)/1e9:.1f}B\n✅ Status: ALL SYSTEMS NOMINAL")
+            stg(f"╔══════════════════════════════════╗\n║  📊 WEEKLY REPORT 📊             ║\n╚══════════════════════════════════╝\n\n👑 Bot: King Samrat Mantu Singh\n📅 {dt.strftime('%d-%b %Y')}\n⏱️ Uptime: {int((nw-state['st'])/86400)} Days\n📊 Symbols: {len(state['s'])}\n📨 Total Alerts: {wd.get('as',0)}\n\n📋 BY TYPE:\n🚨 Liquidation: {wd.get('liq',0)}\n🔴 Flip Bearish: {wd.get('fb',0)}\n🟢 Flip Bullish: {wd.get('fu',0)}\n🟢 Long Opp: {wd.get('lo',0)}\n🔴 Short Opp: {wd.get('so',0)}\n⚠️ Interval Comp: {wd.get('ic',0)}\n🔵 Interval Exp: {wd.get('ie',0)}\n💎 Premium Alpha: {wd.get('pa',0)}\n🆕 New Listing: {wd.get('nl',0)}\n\n🏆 TOP SYMBOLS:\n{top_str}\n\n📊 Peak 24h Vol: ${wd.get('peak',0)/1e9:.1f}B\n✅ Status: ALL SYSTEMS NOMINAL")
             state["wd"] = {"as":0,"liq":0,"fb":0,"fu":0,"lo":0,"so":0,"ic":0,"ie":0,"pa":0,"nl":0,"top":[],"peak":0}
             save_state()
 
@@ -355,7 +347,7 @@ threading.Thread(target=run_flask, daemon=True).start()
 threading.Thread(target=self_ping, daemon=True).start()
 
 update_prices()
-stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n✅ ALL SYSTEMS NOMINAL")
+stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: King Samrat Mantu Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n✅ ALL SYSTEMS NOMINAL")
 
 while True:
     try:
