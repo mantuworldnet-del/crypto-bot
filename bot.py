@@ -7,24 +7,19 @@ CHAT_ID = "7020214660"
 BASE_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 STATE_FILE = "state.json"
 
-# ========== KEEP ALIVE SERVER ==========
+# ========== KEEP ALIVE ==========
 app = Flask(__name__)
-
 @app.route('/')
-def home():
-    return "Bot is Running 24/7"
+def home(): return "Samrat Singh Bot - Running 24/7"
 
 def run_flask():
     app.run(host='0.0.0.0', port=8080)
 
-# ========== SELF PING (EVERY 4 MIN) ==========
 def self_ping():
     while True:
         time.sleep(240)
-        try:
-            requests.get("http://localhost:8080/", timeout=5)
-        except:
-            pass
+        try: requests.get("http://localhost:8080/", timeout=5)
+        except: pass
 
 # ========== EXCHANGE CONFIGS ==========
 EXCHANGES = {
@@ -236,7 +231,7 @@ def da(cur):
             if r < -0.0001: lod.append((en, pr, r, nf))
             if r > 0.0001: sod.append((en, pr, r, nf))
             if nf > nw and pn > 0:
-                ci, pi = nf - nw, pn - (nw - REFRESH)
+                ci, pi = nf - nw, pn - (nw - 300)
                 if pi > 0:
                     ph, ch = ih(pi), ih(ci)
                     if ch < ph: icd.append((en, ph, ch, nf))
@@ -321,7 +316,7 @@ def da(cur):
         lines = [x[0] for x in valid]
         header = f"╔══════════════════════════════════╗\n║  {title}  ║\n║  🔔 PRIORITY: {priority}               ║\n╚══════════════════════════════════╝\n"
         body = "\n" + "─"*34 + "\n".join(lines)
-        footer = f"\n{'─'*34}\n🔄 {ft(nw)} → {ft(nw+REFRESH)} | 📋 {at.upper()}-{datetime.datetime.fromtimestamp(nw,IST).strftime('%d%m')}"
+        footer = f"\n{'─'*34}\n🔄 {ft(nw)} → {ft(nw+300)} | 📋 {at.upper()}-{datetime.datetime.fromtimestamp(nw,IST).strftime('%d%m')}"
         msgs.append(header + body + footer)
         wd = state.setdefault("wd",{})
         wd["as"] = wd.get("as",0) + len(lines)
@@ -331,14 +326,14 @@ def da(cur):
     sym_counts = {}
     for h in state.get("history",[]): sym_counts[h["sym"]] = sym_counts.get(h["sym"],0) + 1
     state["wd"]["top"] = [{"sym":s,"count":c} for s,c in sorted(sym_counts.items(), key=lambda x: x[1], reverse=True)[:5]]
-    if int(time.time()) % 300 < 5: save_state()
+    save_state()
     return msgs
 
 def hb():
     nw = time.time()
     if nw - state.get("hl",0) > 1800:
         state["hl"] = nw
-        stg(f"╔══════════════════════════════════╗\n║  💓 SYSTEM HEARTBEAT 💓          ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🕐 Time: {ft(nw)}\n📊 Monitoring: {len(state['s'])} Symbols\n✅ Status: ALL SYSTEMS NOMINAL\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ Refresh: 5 min\n🔄 Next: {ft(nw+REFRESH)}")
+        stg(f"╔══════════════════════════════════╗\n║  💓 SYSTEM HEARTBEAT 💓          ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🕐 Time: {ft(nw)}\n📊 Monitoring: {len(state['s'])} Symbols\n✅ Status: ALL SYSTEMS NOMINAL\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ Refresh: 5 min\n🔄 Next: {ft(nw+300)}")
         save_state()
 
 def wr():
@@ -355,17 +350,18 @@ def wr():
             state["wd"] = {"as":0,"liq":0,"fb":0,"fu":0,"lo":0,"so":0,"ic":0,"ie":0,"pa":0,"nl":0,"top":[],"peak":0}
             save_state()
 
-# ========== MAIN ==========
+# ========== START ==========
 threading.Thread(target=run_flask, daemon=True).start()
 threading.Thread(target=self_ping, daemon=True).start()
 
 update_prices()
-stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n🔄 Auto-Refresh: Active\n✅ ALL SYSTEMS NOMINAL")
+stg("╔══════════════════════════════════╗\n║  🟢 SYSTEM ONLINE 🟢              ║\n╚══════════════════════════════════╝\n\n👑 Bot: Samrat Singh\n🏛️ Binance, Bybit, OKX, Bitget\n⏱️ 5 min | 🔰 10 Alert Types\n💾 Data: Saved | 📨 Grouped Alerts\n📊 Weekly: Sunday 9 AM\n✅ ALL SYSTEMS NOMINAL")
 
 while True:
     try:
         update_prices()
         for a in da(gd()): stg(a)
-        hb(); wr()
+        hb()
+        wr()
     except Exception as e: print(f"Error: {e}")
-    time.sleep(REFRESH)
+    time.sleep(300)
